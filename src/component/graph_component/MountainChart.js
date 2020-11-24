@@ -1,10 +1,24 @@
 import React from 'react';
 import * as d3 from 'd3';
-import stateManager from '../../dataManager/stateManager'
-import { autorun } from 'mobx';
 import mo from '../../static/mo.png';
 
 // 3/16 直接画短线段
+
+function throttle(fn, delay) {
+  var timer;
+  return function () {
+    var _this = this;
+    var args = arguments;
+    if (timer) {
+      return;
+    }
+    timer = setTimeout(function () {
+      fn.apply(_this, args);
+      timer = null; 
+    }, delay)
+  }
+}
+
 export default class AreaLineChart extends React.Component {
   constructor() {
     super();
@@ -18,28 +32,105 @@ export default class AreaLineChart extends React.Component {
     this.angle_scale = d3.scaleLinear()
       .domain([-10, 0, 10])
       .range([90, 0, -90]);
+
+    // for the image showing when circle hovering
+    this.state= {
+      moBound: {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0
+      }
+    }
   }
+
   componentDidMount() {
     this.calculatePos(this.props.data);
-    this.renderCircles();
-    // this.renderCanvas();
+    this.handleHoverEvents()
   }
 
-
-  // _onEventFilterChange = autorun(()=>{
-  //   if (stateManager.is_ready) {
-  //       let used_types = stateManager.used_types
-  //       let need_refesh = stateManager.need_refresh
-  //       this.calculatePos();
-  //       this.renderCircles();
-  //   }
-  // })
-
   componentWillReceiveProps(nextProps) {
-    // if(nextProps.data.toString()!==this.props.data.toString()){
     this.calculatePos(nextProps.data);
-    // }
-    this.renderCircles();
+    this.handleHoverEvents()
+  }
+
+  setImgBound = (x,y,size) =>{
+    this.setState({
+      moBound: {
+        x: x-size/2,
+        y: y-size/2,
+        width: size,
+        height: size
+      }
+    })
+  }
+
+  getD(node) {
+    const $this = d3.select(node);
+    const { eventArray } = this;
+
+    let indexOut = $this.attr('indexout');
+    let indexIn = $this.attr('indexin');
+
+    return eventArray[(+indexOut) + 1][+indexIn];
+  }
+
+  handleHoverEvents() {
+    let { onMouseOver, onMouseOut, onMouseClick, width, height, xscale, yscale } = this.props;
+    const node = this.refs.area;
+
+    const that = this;
+
+    const $g = d3.select(node)
+      .select('.certainEventPoint');
+
+    $g.selectAll('circle')
+      .on('mouseover', function() {
+        let pos = d3.mouse(node);
+
+        throttle(() => {
+          let x = pos[0] + 10;
+          if (pos[0] + 10 + 160 > width) x = pos[0] - 180;
+          let y = pos[1] - 100;
+          y = y - 10 < 0 ? 10 : y;
+          y = y + 160 > height ? y - 20 : y;
+
+          let d = that.getD(this)
+
+          onMouseOver(d.event, [x, y]);
+
+          that.setImgBound(xscale(d.x), yscale(d.y), d.len*30);
+
+          // console.log('mouseover');
+        }, 300)()
+
+      })
+      .on('mouseout', () => {
+        throttle(() => {
+          onMouseOut();
+          that.setImgBound(0,0,0);
+          // console.log('mouseout');
+
+        }, 300)()
+      })
+      .on('mousedown', function () {
+
+        let pos = d3.mouse(node);
+        throttle(() => {
+          let x = pos[0] + 10;
+          if (pos[0] + 10 + 160 > width) x = pos[0] - 180;
+          let y = pos[1] - 100;
+          y = y - 10 < 0 ? 10 : y;
+          y = y + 160 > height ? y - 20 : y;
+
+          const d = that.getD(this);
+          
+          onMouseClick(d.event, [x, y]);
+
+          that.setImgBound(xscale(d.x), yscale(d.y), d.len*30);
+        },300)()
+
+      });
   }
 
   calculatePos(data) {
@@ -69,19 +160,6 @@ export default class AreaLineChart extends React.Component {
             tmp.id = event.id;
             eventCircles.push(tmp);
           }
-          // d.events.forEach((event,j)=>{
-          //   let score = event.getScore(selected_person);
-          //   let imp = event.getImp(selected_person);
-          //   let tmp={};
-          //   tmp.y= y0+(y-y0)*this.imp_scale(imp);
-          //   if(tmp.y<0.1) return tmp.y=0.1;
-          //   tmp.x = x-0.5+j/len;
-          //   tmp.k = this.angle_scale(score);
-          //   tmp.len = this.imp_scale(imp);
-          //   tmp.event=event;
-          //   tmp.id=event.id;
-          //   eventCircles.push(tmp);
-          // })
         })
         eventArray.push(eventCircles);
       })
@@ -89,6 +167,7 @@ export default class AreaLineChart extends React.Component {
     }
   }
 
+  // 未使用
   renderCircles() {
     let { yscale, xscale, onMouseOver, onMouseOut, onMouseClick, width, height, viewType } = this.props;
     const node = this.refs.area;
@@ -121,12 +200,6 @@ export default class AreaLineChart extends React.Component {
           .select('.certainEventPoint')
           .selectAll(`.circle${index}`)
           .data(events, (d) => d.id)
-        // } else {
-        //   dom = d3.select(this.refs.area)
-        //   .select('.certainEventPoint')
-        //   .selectAll(`.circle${index+1}`)
-        //   .data(events)
-        // }
         dom.attr('x', (d, i) => {
           return xscale(d.x);
         })
@@ -225,6 +298,7 @@ export default class AreaLineChart extends React.Component {
     }
   }
 
+  // 未使用
   hoverEventPoints(name) {
     let { yscale, xscale } = this.props;
     d3.select(this.refs.area)
@@ -247,6 +321,7 @@ export default class AreaLineChart extends React.Component {
       .attr('height', (d) => d.len * 30)
   }
 
+  // 未使用
   renderCanvas() {
     let { yscale, xscale, width, height, viewType, index } = this.props;
     let canvas = d3.select(this.refs.area).select(`#canvas${index}`).node();
@@ -318,22 +393,61 @@ export default class AreaLineChart extends React.Component {
   }
 
   render() {
-    let { data, xscale, yscale, translate, viewType, selectTrigger } = this.props;
+    let { data, xscale, yscale, translate, viewType, selectTrigger, imgBound } = this.props;
+
+    let { eventArray } = this;
+    const { moBound } = this.state;
+
     if (viewType) {
       data = data.slice(1);
     }
     else {
       data = data[0];
     }
-    this.hoverEventPoints(selectTrigger);
-    // console.log(data);
+
+    // console.log('selectTrigger', selectTrigger)
+    // this.hoverEventPoints(selectTrigger);
+
     this.area.x((d) => xscale(d.x))
       .y1((d) => yscale(d.y))
       .y0((d) => yscale(d.y0));
+
+    eventArray && (eventArray = eventArray.slice(1))
+
     return (
       <g className="area" ref="area" translate={translate}>
         {viewType ? data && data.map((d, i) => <path key={i} d={this.area(d)} fill={`url(#linear${i})`} />) : data && <path d={this.area(data)} fill={'url(#linear)'}></path>}
-        <g className="certainEventPoint"/>
+        <g className="certainEventPoint">
+          <image href={mo} {...moBound} 
+            style={{ pointerEvents: 'none', cursor: 'pointer', transition: 'width 300ms ease-in-out', userSelect: 'none',}}
+          ></image>
+
+          <g className='circles'>
+            {
+              eventArray && eventArray.length > 0 && eventArray.map((events, index) => {
+                return events.map((d, i) => {
+                  // 替代之前的hoverEventPoints函数的功能
+                  if(d.event.trigger.getName() === selectTrigger || !selectTrigger) {
+                    return (<circle 
+                      key={index+''+i} 
+                      className={['circle' + index, d.event.is_change ? `circle${index} circleimg change`:`circle${index} circleimg`].join(' ')} 
+                      cx={xscale(d.x)}
+                      cy={yscale(d.y)}
+                      r={d.len * 10}
+                      opacity={0.1}
+                      indexout={index}
+                      indexin={i}
+                      transform={`rotate(${d.k},${xscale(d.x)},${yscale(d.y)})`}
+                      style={{cursor: 'pointer'}}
+                    />)
+                  } else {
+                    return null;
+                  }
+                })
+              })
+            }
+          </g>
+        </g>
       </g>
     );
   }

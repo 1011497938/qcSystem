@@ -435,7 +435,8 @@ class RealtionMatrix extends React.Component {
         } else if (color_method === '正负向') {
             const blue =   d3.rgb(39, 112, 167) //.brighter();	//浅绿
             const white = d3.color('white')
-            const red = d3.rgb(196, 116, 37) //d3.rgb(204, 98, 100) //.brighter();		//深绿
+            // const red = d3.rgb(196, 116, 37) //d3.rgb(204, 98, 100) //.brighter();		//深绿
+            const red = d3.rgb(233, 155, 44)
             const color1 = d3.interpolate(white, blue);
             const color2 = d3.interpolate(white, red);
             //颜色插值函数
