@@ -42,6 +42,8 @@ export default class AreaLineChart extends React.Component {
         height: 0
       }
     }
+
+    this.onImgMouseOut = this.onImgMouseOut.bind(this);
   }
 
   componentDidMount() {
@@ -63,6 +65,11 @@ export default class AreaLineChart extends React.Component {
         height: size
       }
     })
+  }
+
+  onImgMouseOut() {
+    this.props.onMouseOut();
+    this.setImgBound(0,0,0);
   }
 
   getD(node) {
@@ -104,14 +111,6 @@ export default class AreaLineChart extends React.Component {
           // console.log('mouseover');
         }, 300)()
 
-      })
-      .on('mouseout', () => {
-        throttle(() => {
-          onMouseOut();
-          that.setImgBound(0,0,0);
-          // console.log('mouseout');
-
-        }, 300)()
       })
       .on('mousedown', function () {
 
@@ -414,39 +413,40 @@ export default class AreaLineChart extends React.Component {
 
     eventArray && (eventArray = eventArray.slice(1))
 
+    const noneFlag = selectTrigger === ''
+
     return (
       <g className="area" ref="area" translate={translate}>
         {viewType ? data && data.map((d, i) => <path key={i} d={this.area(d)} fill={`url(#linear${i})`} />) : data && <path d={this.area(data)} fill={'url(#linear)'}></path>}
         <g className="certainEventPoint">
-          <image href={mo} {...moBound} 
-            style={{ pointerEvents: 'none', cursor: 'pointer', transition: 'width 300ms ease-in-out', userSelect: 'none',}}
-          ></image>
-
+         
           <g className='circles'>
             {
               eventArray && eventArray.length > 0 && eventArray.map((events, index) => {
                 return events.map((d, i) => {
+                let flag =  d.event.trigger.getName() !== selectTrigger 
                   // 替代之前的hoverEventPoints函数的功能
-                  if(d.event.trigger.getName() === selectTrigger || !selectTrigger) {
-                    return (<circle 
-                      key={index+''+i} 
-                      className={['circle' + index, d.event.is_change ? `circle${index} circleimg change`:`circle${index} circleimg`].join(' ')} 
-                      cx={xscale(d.x)}
-                      cy={yscale(d.y)}
-                      r={d.len * 10}
-                      opacity={0.1}
-                      indexout={index}
-                      indexin={i}
-                      transform={`rotate(${d.k},${xscale(d.x)},${yscale(d.y)})`}
-                      style={{cursor: 'pointer'}}
-                    />)
-                  } else {
-                    return null;
-                  }
+                  return (<circle 
+                    key={index+''+i} 
+                    className={['circle' + index, d.event.is_change ? `circle${index} circleimg change`:`circle${index} circleimg`].join(' ')} 
+                    cx={xscale(d.x)}
+                    cy={yscale(d.y)}
+                    r={d.len * 10}
+                    opacity={flag || noneFlag ? 0.1: 1}
+                    indexout={index}
+                    indexin={i}
+                    transform={`rotate(${d.k},${xscale(d.x)},${yscale(d.y)})`}
+                    style={{cursor: 'pointer', transition: 'opacity 300ms ease-in-out'}}
+                  />)
                 })
               })
             }
           </g>
+
+          <image href={mo} {...moBound}
+            onMouseOut={this.onImgMouseOut}
+            style={{ cursor: 'pointer', transition: 'width 300ms ease-in-out', userSelect: 'none',}}
+          ></image>
         </g>
       </g>
     );
